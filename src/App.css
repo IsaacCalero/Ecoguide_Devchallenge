@@ -555,3 +555,22 @@ body {
     min-width: 100%;
   }
 }
+.error {
+  color: #e74c3c;
+  font-weight: 500;
+}
+
+.success {
+  color: #2ecc71;
+  font-weight: 500;
+}
+
+.danger {
+  background-color: #e74c3c;
+  color: white;
+  margin-top: 10px;
+}
+
+.danger:hover {
+  background-color: #c0392b;
+}
