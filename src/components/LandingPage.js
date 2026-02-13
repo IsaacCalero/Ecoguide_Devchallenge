@@ -1,6 +1,6 @@
 import React from 'react';
 
-const LandingPage = ({ user, onStartGame, onLoginClick, onLogout, onShowRanking, co2Saved }) => {
+const LandingPage = ({ user, onStartGame, onLoginClick, onLogout, onShowRanking, onShowProfile, co2Saved }) => {
   
   const guideItems = [
     {
@@ -61,6 +61,9 @@ const LandingPage = ({ user, onStartGame, onLoginClick, onLogout, onShowRanking,
               </span>
               
               <div style={{ display: 'flex', gap: '10px' }}>
+                <button className="btn-secondary" onClick={onShowProfile}>
+                  Perfil
+                </button>
                 <button className="btn-secondary" onClick={onShowRanking}>
                   Ranking
                 </button>

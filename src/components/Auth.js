@@ -1,32 +1,44 @@
 import React, { useState } from 'react';
 
 /**
- * Componente de Autenticación (Login/Register)
- * Maneja tanto el registro de nuevos usuarios como el inicio de sesión
- * Alterna entre dos vistas: login y registro
- * 
- * @param {Function} onLogin - Callback ejecutado cuando el login es exitoso
- *                             recibe el objeto usuario: { id, nombre, puntos, co2_evitado }
+ * Auth component: login and register with frontend password validation
  */
 const Auth = ({ onLogin }) => {
-  // --- ESTADO ---
-  const [isRegister, setIsRegister] = useState(false); // true = modo registro, false = modo login
+  const [isRegister, setIsRegister] = useState(false);
   const [formData, setFormData] = useState({ nombre: '', email: '', password: '' });
-  const [error, setError] = useState(''); // Mensaje de error si falla la solicitud
+  const [error, setError] = useState('');
+  const [pwdTouched, setPwdTouched] = useState(false);
+  const [pwdError, setPwdError] = useState('');
 
-  /**
-   * Maneja el envío del formulario (registro o login)
-   * Realiza una solicitud POST al backend con las credenciales
-   * 
-   * @param {Event} e - Evento del formulario
-   */
+  const validatePassword = (pw) => {
+    if (!pw || pw.length < 8) return 'La contraseña debe tener al menos 8 caracteres';
+    if (!/[A-Z]/.test(pw)) return 'Incluye al menos una letra mayúscula';
+    if (!/[a-z]/.test(pw)) return 'Incluye al menos una letra minúscula';
+    if (!/[0-9]/.test(pw)) return 'Incluye al menos un número';
+    if (!/[!@#$%^&*()_+\-=\[\]{};:\"\\|,.<>\/?]/.test(pw)) return 'Incluye al menos un carácter especial (ej. !?@#)';
+    return '';
+  };
+
   const handleSubmit = async (e) => {
     e.preventDefault();
     setError('');
-    
-    // Selecciona el endpoint según si es registro o login
+    setPwdError('');
+    setPwdTouched(true);
+
+    if (isRegister) {
+      if (!formData.nombre || !formData.nombre.trim()) {
+        setError('Por favor introduce tu nombre completo');
+        return;
+      }
+      const pwErr = validatePassword(formData.password);
+      if (pwErr) {
+        setPwdError(pwErr);
+        return;
+      }
+    }
+
     const endpoint = isRegister ? '/api/auth/register' : '/api/auth/login';
-    
+
     try {
       const response = await fetch(`http://localhost:5000${endpoint}`, {
         method: 'POST',
@@ -35,35 +47,24 @@ const Auth = ({ onLogin }) => {
       });
 
       const data = await response.json();
-
-      // Si hay error HTTP, lanzamos excepción
       if (!response.ok) throw new Error(data.error || 'Algo salió mal');
 
-      // --- MANEJO POST-LOGIN ---
       if (!isRegister) {
-        // Guardamos token y usuario en localStorage
         localStorage.setItem('token', data.token);
         localStorage.setItem('user', JSON.stringify(data.user));
-        // Ejecutamos callback para actualizar estado en App
         onLogin(data.user);
       } else {
-        // --- MANEJO POST-REGISTRO ---
-        // Confirmamos registro y volvemos a login
-        alert("¡Registro exitoso! Ahora puedes iniciar sesión.");
+        alert('¡Registro exitoso! Ahora puedes iniciar sesión.');
         setIsRegister(false);
       }
     } catch (err) {
-      // Mostramos error en la UI
-      setError(err.message);
+      setError(err.message || 'Error en la petición');
     }
   };
 
   return (
-    // Contenedor principal con posicionamiento relativo para el botón "Volver"
     <div className="auth-wrapper" style={{ position: 'relative' }}>
-      
-      {/* BOTÓN VOLVER: Navega a la página principal */}
-      <button 
+      <button
         onClick={() => window.location.href = '/'}
         className="btn-back"
         style={{
@@ -83,89 +84,82 @@ const Auth = ({ onLogin }) => {
         <span style={{ fontSize: '1.2rem' }}>←</span> Volver
       </button>
 
-      {/* TARJETA DE AUTENTICACIÓN */}
       <div className="auth-card">
-        {/* ENCABEZADO CON LOGO */}
-        <div style={{ textAlign: 'center', marginBottom: '30px' }}>
+        <div style={{ textAlign: 'center', marginBottom: '20px' }}>
           <h1 className="logo">EcoGuide</h1>
           <p style={{ color: 'var(--text-muted)', fontSize: '0.9rem' }}>
             {isRegister ? 'Únete a la revolución verde' : 'Bienvenid@ de nuevo'}
           </p>
         </div>
 
-        {/* FORMULARIO */}
-        <form onSubmit={handleSubmit}>
-          <h2 style={{ marginBottom: '20px', textAlign: 'center' }}>
-            {isRegister ? 'Crear Cuenta' : 'Iniciar Sesión'}
-          </h2>
-          
-          {/* MOSTRAR ERRORES */}
-          {error && (
-            <div style={{ 
-              background: 'rgba(239, 68, 68, 0.1)', 
-              color: 'var(--red-error)', 
-              padding: '10px', 
-              borderRadius: '10px', 
-              marginBottom: '15px',
-              fontSize: '0.85rem',
-              border: '1px solid var(--red-error)',
-              textAlign: 'center'
-            }}>
-              {error}
+        <form onSubmit={handleSubmit} className="auth-form">
+          <h2 style={{ marginBottom: '12px', textAlign: 'center' }}>{isRegister ? 'Crear Cuenta' : 'Iniciar Sesión'}</h2>
+
+          {error && <div className="auth-error">{error}</div>}
+
+          {isRegister && (
+            <div className="form-row">
+              <label htmlFor="nombre" className="form-label">Nombre completo</label>
+              <input
+                id="nombre"
+                type="text"
+                className="form-input"
+                placeholder="Tu nombre"
+                value={formData.nombre}
+                onChange={(e) => setFormData({ ...formData, nombre: e.target.value })}
+                required
+              />
             </div>
           )}
-          
-          {/* CAMPO NOMBRE (solo en registro) */}
-          {isRegister && (
-            <input 
-              type="text" 
-              placeholder="Nombre completo" 
-              value={formData.nombre}
-              onChange={(e) => setFormData({...formData, nombre: e.target.value})} 
-              required 
+
+          <div className="form-row">
+            <label htmlFor="email" className="form-label">Correo electrónico</label>
+            <input
+              id="email"
+              type="email"
+              className="form-input"
+              placeholder="tu@correo.com"
+              value={formData.email}
+              onChange={(e) => setFormData({ ...formData, email: e.target.value })}
+              required
             />
-          )}
-          
-          {/* CAMPO EMAIL (obligatorio en ambos casos) */}
-          <input 
-            type="email" 
-            placeholder="Correo electrónico" 
-            value={formData.email}
-            onChange={(e) => setFormData({...formData, email: e.target.value})} 
-            required 
-          />
-          
-          {/* CAMPO CONTRASEÑA */}
-          <input 
-            type="password" 
-            placeholder="Contraseña" 
-            value={formData.password}
-            onChange={(e) => setFormData({...formData, password: e.target.value})} 
-            required 
-          />
+          </div>
 
-          {/* BOTÓN DE ENVÍO */}
-          <button type="submit" className="btn-main" style={{ width: '100%', marginTop: '10px' }}>
-            {isRegister ? 'Registrarse Ahora' : 'Entrar al Sistema'}
-          </button>
+          <div className="form-row">
+            <label htmlFor="password" className="form-label">Contraseña</label>
+            <input
+              id="password"
+              type="password"
+              className="form-input"
+              placeholder="Contraseña"
+              value={formData.password}
+              onChange={(e) => { setFormData({ ...formData, password: e.target.value }); if (pwdTouched) setPwdError(validatePassword(e.target.value)); }}
+              onBlur={() => { setPwdTouched(true); setPwdError(validatePassword(formData.password)); }}
+              required
+            />
 
-          {/* SWITCH ENTRE LOGIN Y REGISTRO */}
-          <p 
-            onClick={() => setIsRegister(!isRegister)} 
-            className="switch-auth" 
-            style={{ 
-              cursor: 'pointer', 
-              marginTop: '20px', 
-              textAlign: 'center',
-              fontSize: '0.9rem',
-              color: 'var(--text-muted)'
-            }}
-          >
-            {isRegister ? (
-              <>¿Ya tienes cuenta? <span className="highlight">Inicia sesión</span></>
-            ) : (
-              <>¿No tienes cuenta? <span className="highlight">Regístrate gratis</span></>
+            {isRegister && (
+              <div className="password-hints" style={{ fontSize: '0.85rem', color: 'var(--text-muted)', marginTop: '8px' }}>
+                <div>La contraseña debe incluir:</div>
+                <ul style={{ margin: '6px 0 0 18px' }}>
+                  <li>8+ caracteres</li>
+                  <li>Una mayúscula</li>
+                  <li>Una minúscula</li>
+                  <li>Un número</li>
+                  <li>Un carácter especial (ej. !@#)</li>
+                </ul>
+              </div>
             )}
+
+            {pwdError && <div style={{ color: 'var(--red-error)', marginTop: '8px', fontWeight: 700 }}>{pwdError}</div>}
+          </div>
+
+          <div className="form-actions">
+            <button type="submit" className="btn-main" style={{ width: '100%', marginTop: '6px' }}>{isRegister ? 'Registrarse Ahora' : 'Entrar al Sistema'}</button>
+          </div>
+
+          <p onClick={() => setIsRegister(!isRegister)} className="switch-auth" style={{ cursor: 'pointer', marginTop: '16px', textAlign: 'center', fontSize: '0.9rem', color: 'var(--text-muted)' }}>
+            {isRegister ? (<>¿Ya tienes cuenta? <span className="highlight">Inicia sesión</span></>) : (<>¿No tienes cuenta? <span className="highlight">Regístrate gratis</span></>)}
           </p>
         </form>
       </div>
