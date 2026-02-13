@@ -15,7 +15,7 @@ const Auth = ({ onLogin }) => {
     if (!/[A-Z]/.test(pw)) return 'Incluye al menos una letra mayúscula';
     if (!/[a-z]/.test(pw)) return 'Incluye al menos una letra minúscula';
     if (!/[0-9]/.test(pw)) return 'Incluye al menos un número';
-    if (!/[!@#$%^&*()_+\-=\[\]{};:\"\\|,.<>\/?]/.test(pw)) return 'Incluye al menos un carácter especial (ej. !?@#)';
+    if (!new RegExp("[!@#$%^&*()_+\\-=[]{};:\"|,.<>/?]").test(pw)) return 'Incluye al menos un carácter especial (ej. !?@#)';
     return '';
   };
 

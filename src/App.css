@@ -667,3 +667,20 @@ body {
 /* Spinner small */
 .spinner { display:inline-block; width:14px; height:14px; border-radius:50%; border:2px solid rgba(255,255,255,0.15); border-top-color: white; margin-right:8px; animation: spin 1s linear infinite; vertical-align:middle; }
 @keyframes spin { to { transform: rotate(360deg); } }
+
+/* Profile sections */
+.profile-section { margin-bottom: 24px; }
+.section-title { 
+  color: var(--text-main); 
+  font-size: 1.1rem; 
+  font-weight: 700; 
+  margin: 0 0 16px 0; 
+  padding-bottom: 8px; 
+  border-bottom: 2px solid var(--green-bin);
+}
+.security-item { 
+  background: rgba(255,255,255,0.01); 
+  border-radius: 8px; 
+  padding: 16px; 
+  border: 1px solid rgba(255,255,255,0.03);
+}

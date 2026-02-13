@@ -20,6 +20,7 @@ function App() {
   // --- ESTADO DEL JUEGO ---
   const [wasteData, setWasteData] = useState([]); // Array de objetos residuales
   const [currentIndex, setCurrentIndex] = useState(0); // Índice del objeto actual
+  const [seenWasteIds, setSeenWasteIds] = useState(new Set()); // IDs de residuos ya vistos
   
   // --- ESTADÍSTICAS DEL USUARIO ---
   const [points, setPoints] = useState(0); // Puntos totales
@@ -51,7 +52,7 @@ function App() {
   }, []);
 
   /**
-   * Efecto inicial: Carga residuos y estadísticas del usuario
+   * Efecto inicial: Carga residuos y perfil completo del usuario si hay token
    */
   useEffect(() => {
     fetch('http://localhost:5000/api/residuos')
@@ -60,6 +61,27 @@ function App() {
         setWasteData(data); 
       })
       .catch(err => console.error("Error cargando residuos:", err));
+
+    // Si hay token pero no hay usuario completo, cargar perfil
+    const token = localStorage.getItem('token');
+    if (token && (!user || !user.email)) {
+      fetch('http://localhost:5000/api/auth/me', {
+        headers: { Authorization: `Bearer ${token}` }
+      })
+      .then(res => {
+        if (!res.ok) {
+          throw new Error(`HTTP error! status: ${res.status}`);
+        }
+        return res.json();
+      })
+      .then(data => {
+        if (data.user) {
+          setUser(data.user);
+          localStorage.setItem('user', JSON.stringify(data.user));
+        }
+      })
+      .catch(err => console.error("Error cargando perfil:", err));
+    }
 
     if (user && user.id) {
       loadUserStats(user.id);
@@ -79,9 +101,13 @@ function App() {
       // Si falló antes, registra el acierto sin puntos
       if (hasError) {
         try {
+          const token = localStorage.getItem('token');
           await fetch(`http://localhost:5000/api/usuarios/${user.id}/progreso`, {
             method: 'PUT',
-            headers: { 'Content-Type': 'application/json' },
+            headers: { 
+              'Content-Type': 'application/json',
+              ...(token && { Authorization: `Bearer ${token}` })
+            },
             body: JSON.stringify({ 
               puntos: points,
               co2_evitado: co2Saved, 
@@ -103,9 +129,13 @@ function App() {
       const newCo2 = co2Saved + 0.05;
 
       try {
+        const token = localStorage.getItem('token');
         const response = await fetch(`http://localhost:5000/api/usuarios/${user.id}/progreso`, {
           method: 'PUT',
-          headers: { 'Content-Type': 'application/json' },
+          headers: { 
+            'Content-Type': 'application/json',
+            ...(token && { Authorization: `Bearer ${token}` })
+          },
           body: JSON.stringify({ 
             puntos: newPoints, 
             co2_evitado: newCo2, 
@@ -144,11 +174,31 @@ function App() {
   const handleNext = () => {
     setShowContinue(false);
     setHasError(false); 
+    
+    // Marcar el residuo actual como visto
+    if (wasteData[currentIndex]) {
+      setSeenWasteIds(prev => new Set([...prev, wasteData[currentIndex].id]));
+    }
+    
     if (currentIndex < wasteData.length - 1) {
       setCurrentIndex(prev => prev + 1);
       setFeedback({ text: "Clasifica el siguiente objeto", color: "#333" });
     } else {
-      setCurrentIndex(0); 
+      // Cuando se llega al final, verificar si quedan residuos no vistos
+      const unseenWastes = wasteData.filter(waste => !seenWasteIds.has(waste.id));
+      
+      if (unseenWastes.length > 0) {
+        // Si quedan residuos no vistos, reorganizar el array para mostrarlos
+        const remainingWastes = [...wasteData.filter(waste => !seenWasteIds.has(waste.id))];
+        setWasteData(remainingWastes);
+        setCurrentIndex(0);
+        setFeedback({ text: "¡Has visto todos los residuos! Continuando con los restantes.", color: "#27ae60" });
+      } else {
+        // Si no quedan residuos no vistos, mostrar mensaje y reiniciar
+        setSeenWasteIds(new Set());
+        setCurrentIndex(0);
+        setFeedback({ text: "¡Has completado todos los residuos! Reiniciando...", color: "#27ae60" });
+      }
     }
   };
 
@@ -250,7 +300,11 @@ function App() {
       user={user} 
       points={points} 
       co2Saved={co2Saved} 
-      onStartGame={() => setView('game')} 
+      onStartGame={() => {
+        setSeenWasteIds(new Set()); // Limpiar residuos vistos al iniciar nuevo juego
+        setCurrentIndex(0);
+        setView('game');
+      }} 
       onLoginClick={() => setView('auth')} 
       onLogout={logout} 
       onShowRanking={() => setView('ranking')}
