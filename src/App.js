@@ -4,6 +4,7 @@ import WasteItem from './components/WasteItem';
 import Bin from './components/Bin';
 import LandingPage from './components/LandingPage';
 import Ranking from './components/Ranking';
+import EditProfile from './components/EditProfile';
 import './App.css';
 
 /**
@@ -36,7 +37,10 @@ function App() {
    */
   const loadUserStats = useCallback((userId) => {
     if (!userId) return;
-    fetch(`http://localhost:5000/api/usuarios/${userId}/stats-hoy`)
+    const token = localStorage.getItem('token');
+    fetch(`http://localhost:5000/api/usuarios/${userId}/stats-hoy`, {
+      headers: token ? { Authorization: `Bearer ${token}` } : {},
+    })
       .then(res => res.ok ? res.json() : Promise.reject())
       .then(data => {
         setPoints(data.puntos_totales || 0);
@@ -169,6 +173,12 @@ function App() {
     );
   }
 
+  if (view === 'profile' && user) {
+    return (
+      <EditProfile user={user} setUser={(u) => { setUser(u); localStorage.setItem('user', JSON.stringify(u)); }} onBack={() => setView('landing')} />
+    );
+  }
+
   // VISTA DE JUEGO
   if (view === 'game' && user) {
     return (
@@ -244,6 +254,7 @@ function App() {
       onLoginClick={() => setView('auth')} 
       onLogout={logout} 
       onShowRanking={() => setView('ranking')}
+      onShowProfile={() => setView('profile')}
     />
   );
 }
