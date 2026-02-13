@@ -89,6 +89,7 @@ app.post('/api/auth/register', async (req, res) => {
   const { nombre, email, password } = req.body;
 
   try {
+    // Encriptar contraseña con bcrypt (10 rondas)
     const hashedPassword = await bcrypt.hash(password, 10);
 
     const result = await pool.query(
@@ -99,7 +100,20 @@ app.post('/api/auth/register', async (req, res) => {
     res.status(201).json(result.rows[0]);
 
   } catch (err) {
-    res.status(400).json({ error: "El email ya existe." });
+    console.error('Error en registro:', err);
+    
+    // Error de email duplicado (constraint UNIQUE)
+    if (err.code === '23505') {
+      return res.status(400).json({ 
+        success: false,
+        error: "El email ya está registrado" 
+      });
+    }
+    
+    res.status(500).json({ 
+      success: false,
+      error: "Error al registrar usuario" 
+    });
   }
 });
 
@@ -113,6 +127,7 @@ app.post('/api/auth/login', async (req, res) => {
     if (user.rows.length === 0)
       return res.status(404).json({ error: "Usuario no encontrado" });
 
+    // Validar contraseña con bcrypt
     const validPassword = await bcrypt.compare(password, user.rows[0].password);
 
     if (!validPassword)
@@ -135,7 +150,37 @@ app.post('/api/auth/login', async (req, res) => {
     });
 
   } catch (err) {
-    res.status(500).json({ error: "Error en el servidor" });
+    console.error('Error en login:', err);
+    res.status(500).json({ 
+      success: false,
+      error: "Error en el servidor" 
+    });
+  }
+});
+
+// ENDPOINTS DE RESIDUOS
+
+/**
+ * OBTENER residuos aleatorios
+ * GET /api/residuos
+ */
+app.get('/api/residuos', async (req, res) => {
+  try {
+    const result = await pool.query(
+      'SELECT * FROM residuos ORDER BY RANDOM() LIMIT 10'
+    );
+    
+    res.json({
+      success: true,
+      total: result.rows.length,
+      residuos: result.rows
+    });
+  } catch (err) {
+    console.error('Error al obtener residuos:', err);
+    res.status(500).json({ 
+      success: false,
+      error: "Error al cargar residuos" 
+    });
   }
 });
 
@@ -153,6 +198,7 @@ app.get('/api/usuarios/:id/stats-hoy', verificarToken, async (req, res) => {
     );
 
     res.json({
+      success: true,
       puntos_totales: parseInt(stats.rows[0].puntos_totales) || 0,
       co2_total: parseFloat(stats.rows[0].co2_total) || 0,
       count_hoy: parseInt(stats.rows[0].count_hoy) || 0
@@ -218,6 +264,7 @@ app.put('/api/usuarios/:id/progreso', verificarToken, async (req, res) => {
       [id, residuo_id, fue_acierto]
     );
 
+    // 2. Actualizar puntos y CO2 del usuario
     await pool.query(
       'UPDATE usuarios SET puntos=$1, co2_evitado=$2 WHERE id=$3',
       [puntos, co2_evitado, id]
